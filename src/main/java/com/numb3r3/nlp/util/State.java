@@ -1,0 +1,183 @@
+package com.numb3r3.nlp.util;
+
+// The MIT License
+//
+// Copyright (c) 2010 Stelios Karabasakis
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify_label, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+//
+
+import com.numb3r3.nlp.config.Paths;
+
+import java.io.*;
+
+/**
+ * TODO Description missing
+ *
+ * @author Stelios Karabasakis
+ */
+public class State<T> {
+
+    private T obj;
+    private String obj_name;
+    private File state_file;
+    private File backup_state_file;
+    private ObjectOutputStream state_out = null;
+    private ObjectInputStream state_in = null;
+
+    public State(String obj_name, T obj) {
+        this.obj = obj;
+        this.obj_name = obj_name;
+
+        backup_state_file = new File(Paths.backupStateFiles + "/" + obj_name
+                + ".ser.bak");
+        state_file = new File(Paths.stateFiles + "/" + obj_name + ".ser");
+    }
+
+    public boolean exists() {
+        return state_file.exists();
+    }
+
+    /**
+     * @return the obj
+     */
+    public T getObj() {
+        return obj;
+    }
+
+    /**
+     * @param obj
+     */
+    public void setObj(T obj) {
+        this.obj = obj;
+    }
+
+    private File backupAndRecreate() {
+        if (state_file.exists()) {
+            backup_state_file.delete();
+            if (!state_file.renameTo(backup_state_file)) {
+                // AppLogger.error.log(Level.WARNING,
+                // "Could not save backup file for " + obj_name + ".ser");
+                System.err.println("Could not save backup file for " + obj_name
+                        + ".ser");
+            }
+        } else {
+            try {
+                state_file.createNewFile();
+            } catch (IOException e) {
+                state_file = null;
+                // AppLogger.error.log(Level.SEVERE, "Creation of state file " +
+                // obj_name + ".ser failed!");
+
+                System.err.println("Creation of state file " + obj_name
+                        + ".ser failed!");
+            }
+        }
+
+        return state_file;
+    }
+
+    public void saveState() {
+        try {
+            if (state_out == null) {
+                state_out = new ObjectOutputStream(new FileOutputStream(
+                        backupAndRecreate(), false));
+            } else {
+                state_out.reset();
+                state_out.close();
+                state_out = new ObjectOutputStream(new FileOutputStream(
+                        backupAndRecreate(), false));
+            }
+
+            state_out.writeObject(obj);
+        } catch (IOException e) {
+            // AppLogger.error.log(Level.SEVERE,
+            // "Cannot write to state file for " + this.obj_name);
+            System.err.println("Cannot write to state file for "
+                    + this.obj_name);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    public T restoreState() throws IOException {
+        try {
+            if (state_in != null) {
+                state_in.close();
+            }
+            state_in = new ObjectInputStream(new FileInputStream(state_file));
+            T obj = (T) state_in.readUnshared();
+            state_in.close();
+
+            return obj;
+        } catch (IOException e) {
+            // AppLogger.error.log(Level.SEVERE,
+            // "Cannot restore state file for "
+            // + this.obj_name);
+            System.out
+                    .println("Cannot restore state file for " + this.obj_name);
+            throw e;
+        } catch (ClassNotFoundException e) {
+            System.err.println("Class of serialized object " + this.obj_name
+                    + " cannot be found.");
+        }
+
+        return null;
+    }
+
+    public static void backupDirectoryTree(File src, File dest) {
+        if (src.isDirectory()) {
+            if (!dest.exists()) {
+                dest.mkdir();
+            }
+
+            String[] children = src.list();
+            for (int i = 0; i < children.length; i++) {
+                backupDirectoryTree(new File(src, children[i]), new File(dest,
+                        children[i]));
+            }
+        } else {
+
+            if (dest.exists()) {
+                dest.delete();
+            }
+            try {
+                dest.createNewFile();
+
+                FileInputStream stream_src = new FileInputStream(src);
+                FileOutputStream stream_dest = new FileOutputStream(dest, false);
+
+                // Copy the bits from instream to outstream
+                byte[] buf = new byte[512 * 1024];
+                int len;
+                while ((len = stream_src.read(buf)) > -1) {
+                    stream_dest.write(buf, 0, len);
+                }
+                stream_src.close();
+                stream_dest.close();
+            } catch (FileNotFoundException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+    }
+
+}
