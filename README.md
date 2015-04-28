@@ -1,4 +1,4 @@
-Simple Natural Language Processing Tools
+Natural Language Processing Tools
 =================================
 
 Usage
